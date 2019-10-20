@@ -20,10 +20,20 @@ GT honor code violation.
   		   	  			  	 		  		  		    	 		 		   		 		  
 -----do not edit anything above this line---  		   	  			  	 		  		  		    	 		 		   		 		  
   		   	  			  	 		  		  		    	 		 		   		 		  
-Student Name: Tucker Balch (replace with your name)  		   	  			  	 		  		  		    	 		 		   		 		  
-GT User ID: tb34 (replace with your User ID)  		   	  			  	 		  		  		    	 		 		   		 		  
-GT ID: 900897987 (replace with your GT ID)  		   	  			  	 		  		  		    	 		 		   		 		  
-"""  		   	  			  	 		  		  		    	 		 		   		 		  
+Student Name: Jie Lyu	   	  			  	 		  		  		    	 		 		   		 		  
+GT User ID: jlyu31			  	 		  		  		    	 		 		   		 		  
+GT ID: 903329676		   	  			  	 		  		  		    	 		 		   		 		  
+"""  		   	  		
+
+"""
+
+    [Run this file]
+PYTHONPATH=../:. python3 marketsim.py
+
+    [Run grading scripts]
+PYTHONPATH=../:. python3 grade_marketsim.py
+
+"""
   		   	  			  	 		  		  		    	 		 		   		 		  
 import pandas as pd  		   	  			  	 		  		  		    	 		 		   		 		  
 import numpy as np  		   	  			  	 		  		  		    	 		 		   		 		  
