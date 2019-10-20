@@ -40,30 +40,123 @@ import numpy as np
 import datetime as dt  		   	  			  	 		  		  		    	 		 		   		 		  
 import os  		   	  			  	 		  		  		    	 		 		   		 		  
 from util import get_data, plot_data  		   	  			  	 		  		  		    	 		 		   		 		  
-  		   	  			  	 		  		  		    	 		 		   		 		  
+
+                           
+                           	  	 		  		  		    	 		 		   		 		  
 def compute_portvals(orders_file = "./orders/orders.csv", start_val = 1000000, commission=9.95, impact=0.005):  		   	  			  	 		  		  		    	 		 		   		 		  
     # this is the function the autograder will call to test your code  		   	  			  	 		  		  		    	 		 		   		 		  
     # NOTE: orders_file may be a string, or it may be a file object. Your  		   	  			  	 		  		  		    	 		 		   		 		  
     # code should work correctly with either input  		   	  			  	 		  		  		    	 		 		   		 		  
-    # TODO: Your code here  		   	  			  	 		  		  		    	 		 		   		 		  
-  		   	  			  	 		  		  		    	 		 		   		 		  
-    # In the template, instead of computing the value of the portfolio, we just  		   	  			  	 		  		  		    	 		 		   		 		  
-    # read in the value of IBM over 6 months  		   	  			  	 		  		  		    	 		 		   		 		  
-    start_date = dt.datetime(2008,1,1)  		   	  			  	 		  		  		    	 		 		   		 		  
-    end_date = dt.datetime(2008,6,1)  		   	  			  	 		  		  		    	 		 		   		 		  
-    portvals = get_data(['IBM'], pd.date_range(start_date, end_date))  		   	  			  	 		  		  		    	 		 		   		 		  
-    portvals = portvals[['IBM']]  # remove SPY  		   	  			  	 		  		  		    	 		 		   		 		  
-    rv = pd.DataFrame(index=portvals.index, data=portvals.values)  		   	  			  	 		  		  		    	 		 		   		 		  
-  		   	  			  	 		  		  		    	 		 		   		 		  
-    return rv  		   	  			  	 		  		  		    	 		 		   		 		  
-    return portvals  		   	  			  	 		  		  		    	 		 		   		 		  
+    # TODO: Your code here
+
+    ##### setting up
+    orders_df = pd.read_csv(orders_file, index_col='Date', parse_dates=True, na_values=['nan'])
+    start_date, end_date, orders_dates = get_dates(orders_df)
+    dates = pd.date_range(start_date, end_date)
+    portvals = pd.DataFrame(index=dates, columns=['value'])
+
+    ##### my account
+    current_cash = start_val
+    shares_owned = {}           # symbol (str) -> number (int)
+    symbol_table = {}        # symbol (str) -> prices (pd.df)
+
+    ##### going through dates
+    for date in dates:
+        ### calculating current protfolio value
+        portvals.loc[date].loc['value'] = compute_portval(date, current_cash, shares_owned, symbol_table)
+
+        if date in orders_dates:
+            # date is <class 'pandas._libs.tslibs.timestamps.Timestamp'>
+            # details is <class 'pandas.core.series.Series'>
+            details = orders_df.loc[date]
+
+            # if there are multiple orders on the same day
+            if isinstance(details, pd.DataFrame):
+                for _,each in details.iterrows():
+                    symbol = each.loc['Symbol']
+                    order = each.loc['Order']
+                    shares = each.loc['Shares']
+                    current_cash, shares_owned, symbol_table, transaction_costs = \
+                        update_share_cash(symbol, order, shares, current_cash, shares_owned, symbol_table, date, end_date)
+                    portvals.loc[date].loc['value'] -= transaction_costs    # ????
+            # if there is only one order on that day
+            else:
+                symbol = details.loc['Symbol']
+                order = details.loc['Order']
+                shares = details.loc['Shares']
+
+                current_cash, shares_owned, symbol_table, transaction_costs = \
+                    update_share_cash(symbol, order, shares, current_cash, shares_owned, symbol_table, date, end_date)
+                
+                portvals.loc[date].loc['value'] -= transaction_costs    # ????
+
+    return portvals  		    
+
+
+
+"""########
+Helper functions for compute_portvals
+"""########
+
+
+# returns the start_date, end_date and orders_dates
+def get_dates(orders_df):
+    orders_dates = orders_df.index
+    start_date = orders_df.index[0]
+    end_date = orders_df.index[-1]
+    return start_date, end_date, orders_dates
+
+
+# update current_cash and shares_owned from an order
+def update_share_cash(symbol, order, shares, current_cash, shares_owned, symbol_table, curr_date, end_date):
+
+    # if we have not loaded the symbol information yet
+    if symbol not in symbol_table:
+        # get the df for the symbol
+        symbol_df = get_data([symbol], pd.date_range(curr_date, end_date), addSPY=False, colname = 'Adj Close')  
+        # back fill and forward fill missing informations
+        symbol_df = symbol_df.ffill().bfill()
+        # add the symbol df to symbol_table
+        symbol_table[symbol] = symbol_df
+
+    # update the share and cash information
+    if order == 'BUY':
+        share_change = shares
+        cash_change = -symbol_table[symbol].loc[curr_date].loc[symbol] * shares
+    elif order == 'SELL':
+        share_change = -shares
+        cash_change = symbol_table[symbol].loc[curr_date].loc[symbol] * shares
+    else:
+        print('ERROR: unknow order type')
+
+    shares_owned[symbol] = shares_owned.get(symbol, 0) + share_change
+    current_cash += cash_change
+
+    # update the daily protfolio values
+    transaction_costs = 0                            # !!!!!! needs implementation later
+
+    return current_cash, shares_owned, symbol_table, transaction_costs
+
+
+# compute the portfolio value for a day
+def compute_portval(curr_date, current_cash, shares_owned, symbol_table):
+    shares_worth = 0
+    for symbol in shares_owned:
+        shares_worth += symbol_table[symbol].loc[curr_date].loc[symbol] * shares_owned[symbol]
+    return current_cash + shares_worth
+
+
+"""########
+end of helper functions
+"""########
+
   		   	  			  	 		  		  		    	 		 		   		 		  
 def test_code():  		   	  			  	 		  		  		    	 		 		   		 		  
     # this is a helper function you can use to test your code  		   	  			  	 		  		  		    	 		 		   		 		  
     # note that during autograding his function will not be called.  		   	  			  	 		  		  		    	 		 		   		 		  
     # Define input parameters  		   	  			  	 		  		  		    	 		 		   		 		  
   		   	  			  	 		  		  		    	 		 		   		 		  
-    of = "./orders/orders2.csv"  		   	  			  	 		  		  		    	 		 		   		 		  
+    of = "./orders/orders-01.csv"  		   	  			  	 		  		  		    	 		 		   		 		  
     sv = 1000000  		   	  			  	 		  		  		    	 		 		   		 		  
   		   	  			  	 		  		  		    	 		 		   		 		  
     # Process orders  		   	  			  	 		  		  		    	 		 		   		 		  
@@ -72,14 +165,8 @@ def test_code():
         portvals = portvals[portvals.columns[0]] # just get the first column  		   	  			  	 		  		  		    	 		 		   		 		  
     else:  		   	  			  	 		  		  		    	 		 		   		 		  
         "warning, code did not return a DataFrame"  		   	  			  	 		  		  		    	 		 		   		 		  
-  		   	  			  	 		  		  		    	 		 		   		 		  
-    # Get portfolio stats  		   	  			  	 		  		  		    	 		 		   		 		  
-    # Here we just fake the data. you should use your code from previous assignments.  		   	  			  	 		  		  		    	 		 		   		 		  
-    start_date = dt.datetime(2008,1,1)  		   	  			  	 		  		  		    	 		 		   		 		  
-    end_date = dt.datetime(2008,6,1)  		   	  			  	 		  		  		    	 		 		   		 		  
-    cum_ret, avg_daily_ret, std_daily_ret, sharpe_ratio = [0.2,0.01,0.02,1.5]  		   	  			  	 		  		  		    	 		 		   		 		  
-    cum_ret_SPY, avg_daily_ret_SPY, std_daily_ret_SPY, sharpe_ratio_SPY = [0.2,0.01,0.02,1.5]  		   	  			  	 		  		  		    	 		 		   		 		  
-  		   	  			  	 		  		  		    	 		 		   		 		  
+
+    """
     # Compare portfolio against $SPX  		   	  			  	 		  		  		    	 		 		   		 		  
     print(f"Date Range: {start_date} to {end_date}")  		   	  			  	 		  		  		    	 		 		   		 		  
     print()  		   	  			  	 		  		  		    	 		 		   		 		  
@@ -95,7 +182,22 @@ def test_code():
     print(f"Average Daily Return of Fund: {avg_daily_ret}")  		   	  			  	 		  		  		    	 		 		   		 		  
     print(f"Average Daily Return of SPY : {avg_daily_ret_SPY}")  		   	  			  	 		  		  		    	 		 		   		 		  
     print()  		   	  			  	 		  		  		    	 		 		   		 		  
-    print(f"Final Portfolio Value: {portvals[-1]}")  		   	  			  	 		  		  		    	 		 		   		 		  
+    print(f"Final Portfolio Value: {portvals[-1]}")
+    """	   	  			  	 		  		  		    	 		 		   		 		  
   		   	  			  	 		  		  		    	 		 		   		 		  
 if __name__ == "__main__":  		   	  			  	 		  		  		    	 		 		   		 		  
     test_code()  		   	  			  	 		  		  		    	 		 		   		 		  
+
+
+
+"""
+    # In the template, instead of computing the value of the portfolio, we just  		   	  			  	 		  		  		    	 		 		   		 		  
+    # read in the value of IBM over 6 months  		   	  			  	 		  		  		    	 		 		   		 		  
+    # start_date = dt.datetime(2008,1,1)  		   	  			  	 		  		  		    	 		 		   		 		  
+    # end_date = dt.datetime(2008,6,1)  		   	  			  	 		  		  		    	 		 		   		 		  
+    # portvals = get_data(['IBM'], pd.date_range(start_date, end_date))  		   	  			  	 		  		  		    	 		 		   		 		  
+    # portvals = portvals[['IBM']]  # remove SPY  		   	  			  	 		  		  		    	 		 		   		 		  
+    # rv = pd.DataFrame(index=portvals.index, data=portvals.values)  		   	  			  	 		  		  		    	 		 		   		 		  
+  		   	  			  	 		  		  		    	 		 		   		 		  
+    # return rv  
+"""
