@@ -156,7 +156,7 @@ def test_code():
     # note that during autograding his function will not be called.  		   	  			  	 		  		  		    	 		 		   		 		  
     # Define input parameters  		   	  			  	 		  		  		    	 		 		   		 		  
   		   	  			  	 		  		  		    	 		 		   		 		  
-    of = "./orders/orders-01.csv"  		   	  			  	 		  		  		    	 		 		   		 		  
+    of = "./orders/additional_orders/orders-short.csv"  		   	  			  	 		  		  		    	 		 		   		 		  
     sv = 1000000  		   	  			  	 		  		  		    	 		 		   		 		  
   		   	  			  	 		  		  		    	 		 		   		 		  
     # Process orders  		   	  			  	 		  		  		    	 		 		   		 		  
@@ -164,7 +164,9 @@ def test_code():
     if isinstance(portvals, pd.DataFrame):  		   	  			  	 		  		  		    	 		 		   		 		  
         portvals = portvals[portvals.columns[0]] # just get the first column  		   	  			  	 		  		  		    	 		 		   		 		  
     else:  		   	  			  	 		  		  		    	 		 		   		 		  
-        "warning, code did not return a DataFrame"  		   	  			  	 		  		  		    	 		 		   		 		  
+        "warning, code did not return a DataFrame"  
+
+    print(portvals)		   	  			  	 		  		  		    	 		 		   		 		  
 
     """
     # Compare portfolio against $SPX  		   	  			  	 		  		  		    	 		 		   		 		  
