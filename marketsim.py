@@ -52,8 +52,11 @@ def compute_portvals(orders_file = "./orders/orders.csv", start_val = 1000000, c
     ##### setting up
     orders_df = pd.read_csv(orders_file, index_col='Date', parse_dates=True, na_values=['nan'])
     start_date, end_date, orders_dates = get_dates(orders_df)
-    dates = pd.date_range(start_date, end_date)
-    portvals = pd.DataFrame(index=dates, columns=['value'])
+
+    # wrong
+    portvals = get_data(['SPY'], pd.date_range(start_date, end_date), addSPY=True, colname = 'Adj Close')
+    portvals = portvals.rename(columns={'SPY': 'value'})
+    dates = portvals.index
 
     ##### my account
     current_cash = start_val
@@ -62,8 +65,6 @@ def compute_portvals(orders_file = "./orders/orders.csv", start_val = 1000000, c
 
     ##### going through dates
     for date in dates:
-        ### calculating current protfolio value
-        portvals.loc[date].loc['value'] = compute_portval(date, current_cash, shares_owned, symbol_table)
 
         if date in orders_dates:
             # date is <class 'pandas._libs.tslibs.timestamps.Timestamp'>
@@ -76,19 +77,19 @@ def compute_portvals(orders_file = "./orders/orders.csv", start_val = 1000000, c
                     symbol = each.loc['Symbol']
                     order = each.loc['Order']
                     shares = each.loc['Shares']
-                    current_cash, shares_owned, symbol_table, transaction_costs = \
-                        update_share_cash(symbol, order, shares, current_cash, shares_owned, symbol_table, date, end_date)
-                    portvals.loc[date].loc['value'] -= transaction_costs    # ????
+                    current_cash, shares_owned, symbol_table = \
+                        update_share_cash(symbol, order, shares, current_cash, shares_owned, symbol_table, date, end_date, commission, impact)
             # if there is only one order on that day
             else:
                 symbol = details.loc['Symbol']
                 order = details.loc['Order']
                 shares = details.loc['Shares']
 
-                current_cash, shares_owned, symbol_table, transaction_costs = \
-                    update_share_cash(symbol, order, shares, current_cash, shares_owned, symbol_table, date, end_date)
-                
-                portvals.loc[date].loc['value'] -= transaction_costs    # ????
+                current_cash, shares_owned, symbol_table = \
+                    update_share_cash(symbol, order, shares, current_cash, shares_owned, symbol_table, date, end_date, commission, impact)
+        
+        ### calculating current protfolio value
+        portvals.loc[date].loc['value'] = compute_portval(date, current_cash, shares_owned, symbol_table)
 
     return portvals  		    
 
@@ -108,34 +109,33 @@ def get_dates(orders_df):
 
 
 # update current_cash and shares_owned from an order
-def update_share_cash(symbol, order, shares, current_cash, shares_owned, symbol_table, curr_date, end_date):
+def update_share_cash(symbol, order, shares, current_cash, shares_owned, symbol_table, curr_date, end_date, commission, impact):
 
     # if we have not loaded the symbol information yet
     if symbol not in symbol_table:
         # get the df for the symbol
-        symbol_df = get_data([symbol], pd.date_range(curr_date, end_date), addSPY=False, colname = 'Adj Close')  
-        # back fill and forward fill missing informations
+        symbol_df = get_data([symbol], pd.date_range(curr_date, end_date), addSPY=True, colname = 'Adj Close')  
+        # back fill and forward fill missing informations on market opend dates
         symbol_df = symbol_df.ffill().bfill()
         # add the symbol df to symbol_table
         symbol_table[symbol] = symbol_df
+        # print(type(symbol_table[symbol]))
+
 
     # update the share and cash information
     if order == 'BUY':
         share_change = shares
-        cash_change = -symbol_table[symbol].loc[curr_date].loc[symbol] * shares
+        cash_change = -symbol_table[symbol].loc[curr_date].loc[symbol] * (1 + impact) * shares
     elif order == 'SELL':
         share_change = -shares
-        cash_change = symbol_table[symbol].loc[curr_date].loc[symbol] * shares
+        cash_change = symbol_table[symbol].loc[curr_date].loc[symbol] * (1 - impact) * shares
     else:
         print('ERROR: unknow order type')
 
     shares_owned[symbol] = shares_owned.get(symbol, 0) + share_change
-    current_cash += cash_change
+    current_cash += cash_change - commission
 
-    # update the daily protfolio values
-    transaction_costs = 0                            # !!!!!! needs implementation later
-
-    return current_cash, shares_owned, symbol_table, transaction_costs
+    return current_cash, shares_owned, symbol_table
 
 
 # compute the portfolio value for a day
@@ -184,7 +184,10 @@ def test_code():
     print()  		   	  			  	 		  		  		    	 		 		   		 		  
     print(f"Final Portfolio Value: {portvals[-1]}")
     """	   	  			  	 		  		  		    	 		 		   		 		  
-  		   	  			  	 		  		  		    	 		 		   		 		  
+
+def author():
+    return 'jlyu31'
+	  			  	 		  		  		    	 		 		   		 		  
 if __name__ == "__main__":  		   	  			  	 		  		  		    	 		 		   		 		  
     test_code()  		   	  			  	 		  		  		    	 		 		   		 		  
 
